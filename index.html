@@ -34,7 +34,7 @@ const $=id=>document.getElementById(id),fmt=n=>n.toLocaleString('ko-KR')+'원';
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xdfe8ed);const camera=new THREE.PerspectiveCamera(42,1,.1,120);camera.position.set(7,7,8);const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;$('stage').prepend(renderer.domElement);
 const orbit=new OrbitControls(camera,renderer.domElement);orbit.target.set(0,.7,0);orbit.enableDamping=true;orbit.maxPolarAngle=Math.PI/2.06;orbit.minDistance=3;orbit.maxDistance=24;
 scene.add(new THREE.HemisphereLight(0xffffff,0x718394,2));const sun=new THREE.DirectionalLight(0xffffff,2);sun.position.set(-3,9,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-12;sun.shadow.camera.right=12;sun.shadow.camera.top=12;sun.shadow.camera.bottom=-12;scene.add(sun);
-let world=new THREE.Group();scene.add(world);let pickables=[];const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();let doorPick=null;
+let world=new THREE.Group();scene.add(world);let pickables=[],furnitureGroups=new Map();const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();let doorPick=null;
 function material(c){return new THREE.MeshStandardMaterial({color:c,roughness:.78})}
 function cube(parent,w,h,d,color,x,y,z){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color));mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh}
 function socketPoint(p=problem){const r=p.room;return r.socket==='left'?{x:-r.w/2+.12,z:0}:r.socket==='right'?{x:r.w/2-.12,z:0}:{x:0,z:-r.d/2+.12}}
@@ -66,10 +66,10 @@ function validate(){let issues=[];for(const id of problem.required)if(!placed.so
 let total=0;for(const f of placed){const d=ITEMS.find(i=>i.id===f.type);total+=d.price;if(!within(f))issues.push(d.name+' 방 경계 초과');if(placed.some(v=>v.uid!==f.uid&&overlap(f,v)))issues.push(d.name+' 가구 충돌');if(d.opening){const front=frontRect(f,d.opening);if(!within(front)||placed.some(v=>v.uid!==f.uid&&overlapsRect(front,v)))issues.push(d.name+' 개폐 공간 부족')}}
 if(problem.budget&&total>problem.budget)issues.push('예산 초과: '+fmt(total)+' / '+fmt(problem.budget));issues.push(...powerCheck());const door=doorway();if(placed.some(f=>Math.abs(f.x-door.x)<(footprint(f).w+.85)/2&&Math.abs(f.z-door.z)<(footprint(f).d+.85)/2))issues.push('출입문 앞 공간 부족');
 if(!hasWalkway())issues.push('출입문에서 방 안쪽까지 이동 동선 없음');issues=[...new Set(issues)];$('validation').className='status '+(issues.length?'error':'success');$('validation').textContent=issues.length?'미통과 ('+issues.length+'개)\n• '+issues.join('\n• '):'✓ 기본 조건 통과!\n총 가구 금액 '+fmt(total);return !issues.length}
-function draw(){world.clear();pickables=[];const r=problem.room;cube(world,r.w,.13,r.d,0xcbb79f,0,-.1,0);const wallcolor=WALLS[wall]||WALLS.ivory;
+function draw(){world.clear();pickables=[];furnitureGroups.clear();const r=problem.room;cube(world,r.w,.13,r.d,0xcbb79f,0,-.1,0);const wallcolor=WALLS[wall]||WALLS.ivory;
 const wallHeight=2.65;const entranceX=doorX(r);const doorW=.9;const left=(entranceX-doorW/2)+r.w/2,right=r.w/2-(entranceX+doorW/2);if(left>.01)cube(world,left,wallHeight,.1,wallcolor,-r.w/2+left/2,wallHeight/2,-r.d/2);if(right>.01)cube(world,right,wallHeight,.1,wallcolor,entranceX+doorW/2+right/2,wallHeight/2,-r.d/2);cube(world,doorW,wallHeight-.0-2.05,.1,wallcolor,entranceX,2.05+(wallHeight-2.05)/2,-r.d/2);const doorMesh=cube(world,.86,2.02,.075,0x7195ae,entranceX,1.01,-r.d/2+.055);doorMesh.material.transparent=true;doorMesh.material.opacity=mode==='create'?.86:.28;doorPick=doorMesh;cube(world,.075,.075,.075,0xd4b46c,entranceX+.3,1,-r.d/2+.13);cube(world,.1,wallHeight,r.d,wallcolor,-r.w/2,wallHeight/2,0);cube(world,.1,wallHeight,r.d,wallcolor,r.w/2,wallHeight/2,0);
 cube(world,.9,1,.04,0xaac6d7,-r.w/2+.06,1.55,.4);const outlet=socketPoint();cube(world,.16,.13,.04,0xffffff,outlet.x,.25,outlet.z);
-placed.forEach(f=>{const d=ITEMS.find(i=>i.id===f.type);const g=new THREE.Group();g.position.set(f.x,0,f.z);g.rotation.y=f.rot*Math.PI/2;world.add(g);const main=cube(g,d.w,d.h,d.d,d.c,0,d.h/2,0);main.userData.uid=f.uid;pickables.push(main);
+placed.forEach(f=>{const d=ITEMS.find(i=>i.id===f.type);const g=new THREE.Group();g.position.set(f.x,0,f.z);g.rotation.y=f.rot*Math.PI/2;world.add(g);furnitureGroups.set(f.uid,g);const main=cube(g,d.w,d.h,d.d,d.c,0,d.h/2,0);main.userData.uid=f.uid;pickables.push(main);
 if(categoryOf(f.type)==='bed'){cube(g,d.w*.95,.14,d.d*.88,0xf7f4ed,0,d.h+.07,0);cube(g,.5,.13,.35,0xffffff,-.48,d.h+.18,-.43)}
 if(categoryOf(f.type)==='desk'){cube(g,d.w,.08,d.d,d.c,0,d.h-.04,0);for(const x of [-d.w/2+.08,d.w/2-.08])for(const z of [-d.d/2+.08,d.d/2-.08])cube(g,.055,d.h-.1,.055,0x66696b,x,(d.h-.1)/2,z)}
 if(categoryOf(f.type)==='lamp'){cube(g,.05,d.h*.7,.05,0x585e63,0,d.h*.45,0);cube(g,.4,.23,.4,0xffe6a8,0,d.h-.12,0)}
@@ -78,7 +78,7 @@ if(categoryOf(f.type)==='tv'){cube(g,d.w,.55,.05,0x161c24,0,d.h-.3,.04)}
 if(d.opening){const a=cube(g,d.w,.012,d.opening,0x64d5bd,0,.014,d.d/2+d.opening/2);a.material.transparent=true;a.material.opacity=.24}
 g.traverse(o=>{if(o.isMesh){o.userData.uid=f.uid;if(o!==main)pickables.push(o)}});if(f.uid===selected){g.add(new THREE.BoxHelper(main,0x2489e0))}
 });$('item-count').textContent=placed.length+'개 배치';$('dimensions').textContent=r.w+'m × '+r.d+'m'}
-function setSelected(){const f=placed.find(i=>i.uid===selected);$('selection').textContent=f?ITEMS.find(i=>i.id===f.type).name+' · 위치 ('+f.x.toFixed(1)+', '+f.z.toFixed(1)+') · '+fmt(ITEMS.find(i=>i.id===f.type).price):'가구를 클릭해 선택하세요.';draw()}
+function updateSelectionLabel(){const f=placed.find(i=>i.uid===selected);$('selection').textContent=f?ITEMS.find(i=>i.id===f.type).name+' · 위치 ('+f.x.toFixed(1)+', '+f.z.toFixed(1)+') · '+fmt(ITEMS.find(i=>i.id===f.type).price):'가구를 클릭해 선택하세요.'}function setSelected(){updateSelectionLabel();draw()}
 function add(type){if(!problem.allowed.includes(categoryOf(type)))return;const d=ITEMS.find(i=>i.id===type);let f={uid:++uid,type,x:0,z:0,rot:0},found=false;for(let z=-problem.room.d/2+d.d/2;z<=problem.room.d/2-d.d/2&&!found;z+=.2)for(let x=-problem.room.w/2+d.w/2;x<=problem.room.w/2-d.w/2;x+=.2){f.x=+x.toFixed(2);f.z=+z.toFixed(2);if(clear(f)){found=true;break}}if(!found){alert('가구를 배치할 공간이 없습니다.');return}placed.push(f);selected=f.uid;setSelected()}
 function move(dx,dz){const f=placed.find(i=>i.uid===selected);if(!f)return;const old={...f};f.x=+(f.x+dx).toFixed(2);f.z=+(f.z+dz).toFixed(2);if(!clear(f))Object.assign(f,old);setSelected()}
 function rotate(step){const f=placed.find(i=>i.uid===selected);if(!f)return;const old=f.rot;f.rot=(f.rot+step+4)%4;if(!clear(f))f.rot=old;setSelected()}
@@ -107,7 +107,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
  }
  if(mode!=='play')return;
  const f=pickedFurniture();if(!f){selected=null;setSelected();return}
- selected=f.uid;setSelected();
+ selected=f.uid;updateSelectionLabel();
  const at=new THREE.Vector3();ray.ray.intersectPlane(ground,at);
  drag={kind:'item',pointer:e.pointerId,id:f.uid,offsetX:at.x-f.x,offsetZ:at.z-f.z,lastX:f.x,lastZ:f.z};
  orbit.enabled=false;renderer.domElement.setPointerCapture(e.pointerId);renderer.domElement.classList.add('dragging');e.preventDefault()
@@ -119,18 +119,19 @@ renderer.domElement.addEventListener('pointermove',e=>{
   const at=new THREE.Vector3(),plane=new THREE.Plane(new THREE.Vector3(0,0,1),problem.room.d/2);
   if(ray.ray.intersectPlane(plane,at)){
    const max=Math.max(0,problem.room.w/2-.5),x=Math.round(THREE.MathUtils.clamp(at.x,-max,max)*10)/10;
-   problem.room.doorX=x;$('door-offset').value=x;$('door-offset-label').textContent=x.toFixed(1)+'m (중앙 기준)';draw()
+   problem.room.doorX=x;$('door-offset').value=x;$('door-offset-label').textContent=x.toFixed(1)+'m (중앙 기준)';if(doorPick){doorPick.position.x=x;}
   }
   return
  }
  const f=placed.find(v=>v.uid===drag.id);if(!f)return;
  const at=new THREE.Vector3();if(!ray.ray.intersectPlane(ground,at))return;
  const x=Math.round((at.x-drag.offsetX)*10)/10,z=Math.round((at.z-drag.offsetZ)*10)/10;
- const oldX=f.x,oldZ=f.z;f.x=x;f.z=z;
- if(!clear(f)){f.x=oldX;f.z=oldZ}else{drag.lastX=x;drag.lastZ=z}
- setSelected()
+ const p=footprint(f),r=problem.room;const targetX=THREE.MathUtils.clamp(x,-r.w/2+p.w/2,r.w/2-p.w/2),targetZ=THREE.MathUtils.clamp(z,-r.d/2+p.d/2,r.d/2-p.d/2);
+ const oldX=f.x,oldZ=f.z;f.x=targetX;f.z=targetZ;
+ if(!clear(f)){f.x=oldX;f.z=targetZ;if(!clear(f)){f.x=targetX;f.z=oldZ;if(!clear(f)){f.x=oldX;f.z=oldZ}}}
+ const group=furnitureGroups.get(f.uid);if(group)group.position.set(f.x,0,f.z);updateSelectionLabel()
 });
-function endDrag(e){if(!drag||drag.pointer!==e.pointerId)return;drag=null;orbit.enabled=true;renderer.domElement.classList.remove('dragging');try{renderer.domElement.releasePointerCapture(e.pointerId)}catch{}}
+function endDrag(e){if(!drag||drag.pointer!==e.pointerId)return;const kind=drag.kind;drag=null;orbit.enabled=true;renderer.domElement.classList.remove('dragging');try{renderer.domElement.releasePointerCapture(e.pointerId)}catch{}if(kind==='item')draw()}
 renderer.domElement.addEventListener('pointerup',endDrag);renderer.domElement.addEventListener('pointercancel',endDrag);window.addEventListener('pointerup',endDrag);
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)||mode!=='play')return;if(e.key==='ArrowLeft')move(-.1,0);if(e.key==='ArrowRight')move(.1,0);if(e.key==='ArrowUp')move(0,-.1);if(e.key==='ArrowDown')move(0,.1);if(e.key.toLowerCase()==='r')rotate(1);if(e.key==='Delete'||e.key==='Backspace'){$('remove-item').click()}if(e.key.startsWith('Arrow'))e.preventDefault()});
 function resize(){const el=$('stage');renderer.setSize(el.clientWidth,el.clientHeight);camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe($('stage'));resize();choose(SAMPLE.id);function animate(){requestAnimationFrame(animate);orbit.update();renderer.render(scene,camera)}animate();
