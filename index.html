@@ -76,7 +76,7 @@ if(categoryOf(f.type)==='lamp'){cube(g,.05,d.h*.7,.05,0x585e63,0,d.h*.45,0);cube
 if(categoryOf(f.type)==='plant'){cube(g,.27,.32,.27,0xc09a80,0,.16,0);cube(g,.45,.43,.45,0x538b63,0,.55,0)}
 if(categoryOf(f.type)==='tv'){cube(g,d.w,.55,.05,0x161c24,0,d.h-.3,.04)}
 if(d.opening){const a=cube(g,d.w,.012,d.opening,0x64d5bd,0,.014,d.d/2+d.opening/2);a.material.transparent=true;a.material.opacity=.24}
-if(f.uid===selected){g.add(new THREE.BoxHelper(main,0x2489e0))}
+g.traverse(o=>{if(o.isMesh){o.userData.uid=f.uid;if(o!==main)pickables.push(o)}});if(f.uid===selected){g.add(new THREE.BoxHelper(main,0x2489e0))}
 });$('item-count').textContent=placed.length+'개 배치';$('dimensions').textContent=r.w+'m × '+r.d+'m'}
 function setSelected(){const f=placed.find(i=>i.uid===selected);$('selection').textContent=f?ITEMS.find(i=>i.id===f.type).name+' · 위치 ('+f.x.toFixed(1)+', '+f.z.toFixed(1)+') · '+fmt(ITEMS.find(i=>i.id===f.type).price):'가구를 클릭해 선택하세요.';draw()}
 function add(type){if(!problem.allowed.includes(categoryOf(type)))return;const d=ITEMS.find(i=>i.id===type);let f={uid:++uid,type,x:0,z:0,rot:0},found=false;for(let z=-problem.room.d/2+d.d/2;z<=problem.room.d/2-d.d/2&&!found;z+=.2)for(let x=-problem.room.w/2+d.w/2;x<=problem.room.w/2-d.w/2;x+=.2){f.x=+x.toFixed(2);f.z=+z.toFixed(2);if(clear(f)){found=true;break}}if(!found){alert('가구를 배치할 공간이 없습니다.');return}placed.push(f);selected=f.uid;setSelected()}
