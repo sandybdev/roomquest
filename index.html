@@ -78,7 +78,7 @@ function draw(){world.clear();pickables=[];furnitureGroups.clear();const r=probl
 const wallHeight=2.65;openingPickables=[];openingMeshes.clear();
 for(const wall of ['back','front','left','right']){
  const len=wallLength(r,wall);const os=openings(r).filter(o=>o.wall===wall).sort((a,b)=>a.offset-b.offset);let cursor=-len/2;
- const wallPart=(from,to,bottom,top)=>{if(to-from<.005||top-bottom<.005)return;const center=(from+to)/2,h=top-bottom;if(wall==='back'||wall==='front')cube(world,to-from,h,.09,wallcolor,center,(top+bottom)/2,wall==='back'?-r.d/2:r.d/2);else cube(world,.09,h,to-from,wallcolor,wall==='left'?-r.w/2:r.w/2,(top+bottom)/2,center)};
+ const wallPart=(from,to,bottom,top)=>{if(wall==='front'||to-from<.005||top-bottom<.005)return;const center=(from+to)/2,h=top-bottom;if(wall==='back'||wall==='front')cube(world,to-from,h,.09,wallcolor,center,(top+bottom)/2,wall==='back'?-r.d/2:r.d/2);else cube(world,.09,h,to-from,wallcolor,wall==='left'?-r.w/2:r.w/2,(top+bottom)/2,center)};
  for(const o of os){clampOpening(o,r);const width=spanFor(o),start=o.offset-width/2,end=o.offset+width/2;wallPart(cursor,start,0,wallHeight);if(o.kind==='door')wallPart(start,end,2.1,wallHeight);else{wallPart(start,end,0,.85);wallPart(start,end,2.05,wallHeight)}cursor=end;
  const p=openingPosition(o,r),g=new THREE.Group();g.position.set(p.x,o.kind==='door'?1.04:1.45,p.z);g.rotation.y=p.rot;world.add(g);const mesh=cube(g,width-.06,o.kind==='door'?2.03:1.15,.075,o.kind==='door'?0x7195ae:0x9dcbe4,0,0,0);mesh.material.transparent=true;mesh.material.opacity=mode==='create'?.75:.34;mesh.userData.openingId=o.id;openingPickables.push(mesh);openingMeshes.set(o.id,g);
  }
